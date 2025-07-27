@@ -30,7 +30,7 @@ client = commands.Bot(
 
 @client.event
 async def on_ready():
-    datastore = Datastore("savedata.json")
+    datastore = Datastore("database.sqlite")
 
     emojis : Final[dict] = {
         "coin" : "<a:goldcoin:1328517822497685535>",

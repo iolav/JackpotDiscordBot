@@ -1,59 +1,90 @@
-import os
-import json
-from typing import Final
+import sqlite3
+from typing import Final, Any
 
-DEFAULT_USER_DATA : Final[dict] = {
+DEFAULT_USER_DATA: Final[dict] = {
     "coins_wallet": 250,
     "coins_bank": 1000,
 }
 
-opFuncs : Final[dict] = {
+opFuncs: Final[dict] = {
     "+": lambda x, y: x + y,
     "-": lambda x, y: x - y,
     "*": lambda x, y: x * y,
     "=": lambda _, y: y,
 }
 
+
 class Datastore:
-    def __init__(self, fileName):
+    def __init__(self, fileName: str):
         self.fileName = fileName
         
-        if not os.path.exists(self.fileName):
-            with open(self.fileName, "w") as file:
-                json.dump({}, file)
+        self.conn = sqlite3.connect(self.fileName)
+        self.cursor = self.conn.cursor()
 
-        with open(self.fileName, "r") as file:
-            self.data = json.load(file)
+        self._setup_table()
+
+    def _setup_table(self):
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                username TEXT NOT NULL,
+                key TEXT NOT NULL,
+                value INTEGER NOT NULL,
+                PRIMARY KEY (username, key)
+            )
+        """)
+        self.conn.commit()
 
     def save(self):
-        with open(self.fileName, "w") as file:
-            json.dump(self.data, file, indent = 4)
+        self.conn.commit()
 
-    def steralize_user(self, user : str):
-        if user not in self.data:
-            self.data[user] = DEFAULT_USER_DATA.copy()
-            self.save()
+    def steralize_user(self, user: str):
+        for key, default_value in DEFAULT_USER_DATA.items():
+            self.cursor.execute("""
+                INSERT OR IGNORE INTO users (username, key, value)
+                VALUES (?, ?, ?)
+            """, (user, key, default_value))
+        self.save()
 
-    def fetch(self, user : str, key : str):
+    def fetch(self, user: str, key: str) -> Any:
         self.steralize_user(user)
 
-        try:
-            return self.data[user][key]
-        except:
-            return None
-    
+        self.cursor.execute("""
+            SELECT value FROM users
+            WHERE username = ? AND key = ?
+        """, (user, key))
+        row = self.cursor.fetchone()
+
+        return row[0] if row else None
+
     def fetchAll(self):
-        try:
-            return self.data
-        except:
-            return None
+        self.cursor.execute("""
+            SELECT username, key, value FROM users
+        """)
 
-    def change(self, user: str, key: str, value, op: str):
+        rows = self.cursor.fetchall()
+
+        all_data = {}
+        for username, key, value in rows:
+            all_data.setdefault(username, {})[key] = value
+
+        return all_data
+
+    def change(self, user: str, key: str, value: int, op: str):
         self.steralize_user(user)
 
-        self.data.setdefault(user, {}).setdefault(key, type(value)())
+        self.cursor.execute("""
+            SELECT value FROM users
+            WHERE username = ? AND key = ?
+        """, (user, key))
+        row = self.cursor.fetchone()
+        current = row[0] if row else 0
 
-        current: int = self.data[user][key]
-        self.data[user][key] = opFuncs[op](current, value)
+        new_value = opFuncs[op](current, value)
+
+        self.cursor.execute("""
+            INSERT INTO users (username, key, value)
+            VALUES (?, ?, ?)
+            ON CONFLICT(username, key) DO UPDATE SET value=excluded.value
+        """, (user, key, new_value))
 
         self.save()
