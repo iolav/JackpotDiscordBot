@@ -45,6 +45,11 @@ async def on_ready():
     await client.add_cog(Admin(datastore, emojis))
     await client.add_cog(Fun(datastore, emojis))
 
+    await client.change_presence(
+        status = discord.Status.online,
+        activity = discord.Activity(name = f"the odds", type = discord.ActivityType.playing)
+    )
+
 @client.event
 async def on_command_error(ctx, error):
     await ctx.reply(error)

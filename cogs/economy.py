@@ -74,7 +74,12 @@ class Economy(commands.Cog):
         help="Withdraws coins from your bank balance.",
         aliases = ["with"]
     )
-    async def withdraw(self, ctx, amount : int = commands.parameter(description="The amount to withdraw.")):
+    async def withdraw(self, ctx, amount = commands.parameter(description="The amount to withdraw.")):
+        if amount == "all":
+            amount = self.datastore.fetch(str(ctx.author.id), "coins_bank") or 0
+        else:
+            amount = int(amount)
+            
         if amount < 1:
             raise commands.BadArgument("The withdraw amount must be greater than 0, use $help for assistance.")
 
@@ -91,7 +96,12 @@ class Economy(commands.Cog):
         help="Deposits coins into your bank balance.",
         aliases = ["dep"]
     )
-    async def deposit(self, ctx, amount : int = commands.parameter(description="The amount to deposit.")):
+    async def deposit(self, ctx, amount  = commands.parameter(description="The amount to deposit.")):
+        if amount == "all":
+            amount = self.datastore.fetch(str(ctx.author.id), "coins_wallet") or 0
+        else:
+            amount = int(amount)
+
         if amount < 1:
             raise commands.BadArgument("The deposit amount must be greater than 0, use $help for assistance.")
 
@@ -135,12 +145,12 @@ class Economy(commands.Cog):
         if lastTimeStr:
             lastTime = datetime.fromisoformat(lastTimeStr)
 
-            if timeNow - lastTime < timedelta(minutes = 5):
-                minutes, seconds = divmod(int((timedelta(minutes = 5) - (timeNow - lastTime)).total_seconds()), 60)
+            if timeNow - lastTime < timedelta(minutes = 2):
+                minutes, seconds = divmod(int((timedelta(minutes = 2) - (timeNow - lastTime)).total_seconds()), 60)
 
-                raise commands.CheckFailure(f"You've already worked in the past *5 minutes*! You have **{minutes}:{seconds:02}** left.")
+                raise commands.CheckFailure(f"You've already worked in the past *2 minutes*! You have **{minutes}:{seconds:02}** left.")
             
-        amount : int = random.randint(100, 200)
+        amount : int = random.randint(50, 150)
             
         self.datastore.change(str(ctx.author.id), "last_work", timeNow.isoformat(), "=")
         self.datastore.change(str(ctx.author.id), "coins_wallet", amount, "+")

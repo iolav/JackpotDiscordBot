@@ -10,4 +10,6 @@ class Fun(commands.Cog):
         aliases = ["rrl"]
     )
     async def russianroulette(self, ctx):
+        #self.datastore.change(str(ctx.author.id), "coins_wallet", 0, "=")
+
         await ctx.reply("In development") 
