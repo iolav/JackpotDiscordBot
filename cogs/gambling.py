@@ -84,6 +84,28 @@ class Blackjack(discord.ui.View):
                         value = f"Value: **{self.getScore(self.plrHand)}**ㅤㅤValue: **{self.getScore(self.dealerHand)}**",
                         inline = False)
         
+    def finish(self):
+        plrScore : int = self.getScore(self.plrHand)
+        dealerScore : int = self.getScore(self.dealerHand)
+        if plrScore > dealerScore or dealerScore > 21:
+            self.datastore.change(str(self.authorId), "coins_wallet", self.bet * 2, "+")
+
+            self.embed.add_field(name = "Dealer busts, you win!" if dealerScore > 21 else f"{plrScore} beats {dealerScore}, you win!",
+                            value = "",
+                            inline = False)
+            self.embed.colour = 0x38ff4f
+        elif dealerScore > plrScore:
+            self.embed.add_field(name = f"{dealerScore} beats {plrScore}, you lose.",
+                            value = "",
+                            inline = False)
+            self.embed.colour = 0xff3838
+        else:
+            self.datastore.change(str(self.authorId), "coins_wallet", self.bet, "+")
+
+            self.embed.add_field(name = "Score tied, push.",
+                            value = "",
+                            inline = False)
+        
     @discord.ui.button(label = "Hit", style = discord.ButtonStyle.blurple)
     async def hit(self, interaction : discord.Interaction, button):
         if interaction.user.id != self.authorId: return
@@ -120,32 +142,16 @@ class Blackjack(discord.ui.View):
 
         self.playDealer()
 
-        plrScore : int = self.getScore(self.plrHand)
-        dealerScore : int = self.getScore(self.dealerHand)
-        if plrScore > dealerScore or dealerScore > 21:
-            self.datastore.change(str(self.authorId), "coins_wallet", self.bet * 2, "+")
-
-            self.embed.add_field(name = "Dealer busts, you win!" if dealerScore > 21 else f"{plrScore} beats {dealerScore}, you win!",
-                            value = "",
-                            inline = False)
-            self.embed.colour = 0x38ff4f
-        elif dealerScore > plrScore:
-            self.embed.add_field(name = f"{dealerScore} beats {plrScore}, you lose.",
-                            value = "",
-                            inline = False)
-            self.embed.colour = 0xff3838
-        else:
-            self.datastore.change(str(self.authorId), "coins_wallet", self.bet, "+")
-
-            self.embed.add_field(name = "Score tied, push.",
-                            value = "",
-                            inline = False)
+        self.finish()
         
         await interaction.response.edit_message(embed = self.embed, view = self)
 
     @discord.ui.button(label = "Double", style = discord.ButtonStyle.red)
     async def double(self, interaction : discord.Interaction, button):
         if interaction.user.id != self.authorId: return
+
+        for child in self.children:
+                child.disabled = True # type: ignore
 
         self.datastore.change(str(self.authorId), "coins_wallet", self.bet, "-")
         self.bet *= 2
@@ -158,17 +164,8 @@ class Blackjack(discord.ui.View):
                         value = "",
                         inline = False)
             self.embed.colour = 0xff3838
-
-        self.embed.set_field_at(0,
-                        name = "Your hand",
-                        value = self.getHand(self.plrHand),
-                        inline = True)
-        self.embed.set_field_at(2,
-                        name = "",
-                        value = f"Value: {score}ㅤㅤValue: {self.getScore(self.dealerHand)}",
-                        inline = False)
-        
-        await interaction.response.edit_message(embed = self.embed, view = self)
+        else:
+            self.finish()
 
 class Gambling(commands.Cog):
     def __init__(self, datastore, emojis : dict[str, str]):
